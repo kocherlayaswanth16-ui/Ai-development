@@ -1,0 +1,117 @@
+import pandas as pd
+
+patients = pd.read_csv("hospital_patients.csv")
+print("Loaded successfully!")
+print(patients)
+
+print(patients.shape)
+
+print(patients.columns)
+
+print(patients.isnull().sum())
+
+print(patients[patients['age'] == 'unknown'])
+
+print(patients.dtypes)
+patients['age'] = patients['age'].replace('unknown', pd.NA)
+patients['age'] = pd.to_numeric(patients['age'])
+average_age = patients['age'].mean()
+patients['age'] = patients['age'].fillna(round(average_age))
+
+print(patients['age'])
+
+print("Data type now:", patients['age'].dtype)
+
+print(patients[patients['diagnosis'].isnull()])
+
+print(patients['diagnosis'].value_counts())
+patients['diagnosis'] = patients['diagnosis'].fillna('Diabetes')
+
+print(patients['diagnosis'].isnull().sum())
+
+print(patients.isnull().sum())
+
+print("---")
+
+print(patients.dtypes)
+
+print(patients.describe())
+
+print(patients.groupby('readmitted')['num_previous_admissions'].mean())
+
+print(patients['readmitted'].value_counts())
+
+
+from sklearn.preprocessing import LabelEncoder
+
+# Convert text columns to numbers
+le = LabelEncoder()
+patients['gender_enc']    = le.fit_transform(patients['gender'])
+patients['diagnosis_enc'] = le.fit_transform(patients['diagnosis'])
+patients['treatment_enc'] = le.fit_transform(patients['treatment'])
+patients['readmitted_enc']= le.fit_transform(patients['readmitted'])
+
+# Separate features and target
+X = patients[['age', 'gender_enc', 'diagnosis_enc',
+              'treatment_enc', 'days_in_hospital',
+              'num_previous_admissions']]
+y = patients['readmitted_enc']
+
+print("Features shape:", X.shape)
+print("Target shape:", y.shape)
+
+
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+
+# Split data
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42)
+
+print("Training patients:", len(X_train))
+print("Testing patients:", len(X_test))
+
+# Train the model
+model = RandomForestClassifier(random_state=42)
+model.fit(X_train, y_train)
+
+print("Model trained successfully!")
+from sklearn.metrics import accuracy_score
+
+# Make predictions on test patients
+predictions = model.predict(X_test)
+
+# Check accuracy
+accuracy = accuracy_score(y_test, predictions)
+print("Model Accuracy:", round(accuracy * 100), "%")
+
+# See actual vs predicted
+print("\nActual vs Predicted:")
+for actual, predicted in zip(y_test, predictions):
+    result = "✅" if actual == predicted else "❌"
+    print(f"Actual: {actual}  Predicted: {predicted}  {result}")
+    
+import pandas as pd
+
+# Get feature importances
+feature_names = ['age', 'gender', 'diagnosis',
+                 'treatment', 'days_in_hospital',
+                 'num_previous_admissions']
+
+importances = pd.Series(
+    model.feature_importances_,
+    index=feature_names
+).sort_values(ascending=False)
+
+print("Feature Importances:")
+print(importances)
+
+# New patient — 72 years old, Female, Diabetes,
+# Insulin treatment, 7 days in hospital, 5 previous admissions
+new_patient = [[72, 1, 0, 1, 7, 5]]
+
+prediction = model.predict(new_patient)
+probability = model.predict_proba(new_patient)
+
+print("Prediction:", "Readmitted" if prediction[0]==1 else "Not Readmitted")
+print("Probability of readmission:", round(probability[0][1]*100), "%")
